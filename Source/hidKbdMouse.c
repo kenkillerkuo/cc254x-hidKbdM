@@ -6,11 +6,11 @@ for use with the CC2540 Bluetooth Low Energy Protocol Stack.
 
 Author:         CONG NGUYEN
 Last modified:  8/10/2014
-**************************************************************************************************/
+ **************************************************************************************************/
 
 /*********************************************************************
-* INCLUDES
-*/
+ * INCLUDES
+ */
 
 #include "bcomdef.h"
 #include "OSAL.h"
@@ -41,8 +41,8 @@ Last modified:  8/10/2014
 #include "KBD_HUT.h"
 
 /*********************************************************************
-* MACROS
-*/
+ * MACROS
+ */
 
 //version string to identify module/capabilities
 #define VERSION_STRING "hidkbdmousev1\r\n"
@@ -70,8 +70,8 @@ Last modified:  8/10/2014
 #define HID_MOUSE_IN_RPT_LEN        5
 
 /*********************************************************************
-* CONSTANTS
-*/
+ * CONSTANTS
+ */
 
 enum Modes {
   command, translate, debug
@@ -123,27 +123,27 @@ enum Modes {
 #define SNV_ID_DEVICE_NAME_CRC          0x82
 
 /*********************************************************************
-* TYPEDEFS
-*/
+ * TYPEDEFS
+ */
 
 /*********************************************************************
-* GLOBAL VARIABLES
-*/
+ * GLOBAL VARIABLES
+ */
 
 // Task ID
 uint8 hidKbdMouseTaskId;
 
 /*********************************************************************
-* EXTERNAL VARIABLES
-*/
+ * EXTERNAL VARIABLES
+ */
 
 /*********************************************************************
-* EXTERNAL FUNCTIONS
-*/
+ * EXTERNAL FUNCTIONS
+ */
 
 /*********************************************************************
-* LOCAL VARIABLES
-*/
+ * LOCAL VARIABLES
+ */
 
 static uint8 sleepModeEnabled = 0;
 
@@ -216,11 +216,11 @@ static hidDevCfg_t hidKbdMouseCfg =
 static uint8 hidBootMouseEnabled = FALSE;
 
 /*********************************************************************
-* LOCAL FUNCTIONS
-*/
+ * LOCAL FUNCTIONS
+ */
 
 /* after calling sleepMode(), the host MCU must wake
-HM-xx before sending characters */
+   HM-xx before sending characters */
 static void sleepMode(void);
 static void activeMode(void);
 
@@ -230,7 +230,7 @@ static void hidKbdMouseSendReport( uint8 modifier, uint8 keycode );
 static void hidKbdMouseSendMouseReport(uint8 buttons, int8 dx, int8 dy, int8 dz);
 static uint8 hidKbdMouseRcvReport( uint8 len, uint8 *pData );
 static uint8 hidKbdMouseRptCB( uint8 id, uint8 type, uint16 uuid,
-                              uint8 oper, uint8 *pLen, uint8 *pData );
+    uint8 oper, uint8 *pLen, uint8 *pData );
 static void hidKbdMouseEvtCB( uint8 evt );
 
 // UART functions
@@ -289,8 +289,8 @@ uint8 getCRC(uint8 message[], uint8 length)
 }
 
 /*********************************************************************
-* PROFILE CALLBACKS
-*/
+ * PROFILE CALLBACKS
+ */
 
 static hidDevCB_t hidKbdMouseHidCBs =
 {
@@ -300,23 +300,23 @@ static hidDevCB_t hidKbdMouseHidCBs =
 };
 
 /*********************************************************************
-* PUBLIC FUNCTIONS
-*/
+ * PUBLIC FUNCTIONS
+ */
 
 /*********************************************************************
-* @fn      HidKbdMouse_Init
-*
-* @brief   Initialization function for the HidKbdMouse App Task.
-*          This is called during initialization and should contain
-*          any application specific initialization (ie. hardware
-*          initialization/setup, table initialization, power up
-*          notificaiton ... ).
-*
-* @param   task_id - the ID assigned by OSAL.  This ID should be
-*                    used to send messages and set timers.
-*
-* @return  none
-*/
+ * @fn      HidKbdMouse_Init
+ *
+ * @brief   Initialization function for the HidKbdMouse App Task.
+ *          This is called during initialization and should contain
+ *          any application specific initialization (ie. hardware
+ *          initialization/setup, table initialization, power up
+ *          notificaiton ... ).
+ *
+ * @param   task_id - the ID assigned by OSAL.  This ID should be
+ *                    used to send messages and set timers.
+ *
+ * @return  none
+ */
 void HidKbdMouse_Init( uint8 task_id )
 {
   setupUART();
@@ -384,7 +384,7 @@ void HidKbdMouse_Init( uint8 task_id )
     printf("Using default device name\r\n");
     GGS_SetParameter( GGS_DEVICE_NAME_ATT, GAP_DEVICE_NAME_LEN, (void *) attDeviceName );
   } else {
-        printf("Using stored device name: %s\r\n", device_name);
+    printf("Using stored device name: %s\r\n", device_name);
     GGS_SetParameter( GGS_DEVICE_NAME_ATT, *device_name_length + 1, (void *) device_name );
   }
   //Allow device to change name
@@ -442,7 +442,7 @@ void HidKbdMouse_Init( uint8 task_id )
   P2 = 0;   // All pins on port 2 to low
 
 #endif // #if defined( CC2540_MINIDK )
-  
+
   // Turn on an LED
   //init keyboard report manager
   KBD_Report_Init();
@@ -452,18 +452,18 @@ void HidKbdMouse_Init( uint8 task_id )
 }
 
 /*********************************************************************
-* @fn      HidKbdMouse_ProcessEvent
-*
-* @brief   HidKbdMouse Application Task event processor.  This function
-*          include timers, messages and any other user defined events.
-*          is called to process all events for the task.  Events
-*
-* @param   task_id  - The OSAL assigned task ID.
-* @param   events - events to process.  This is a bit map and can
-*                   contain more than one event.
-*
-* @return  events not processed
-*/
+ * @fn      HidKbdMouse_ProcessEvent
+ *
+ * @brief   HidKbdMouse Application Task event processor.  This function
+ *          include timers, messages and any other user defined events.
+ *          is called to process all events for the task.  Events
+ *
+ * @param   task_id  - The OSAL assigned task ID.
+ * @param   events - events to process.  This is a bit map and can
+ *                   contain more than one event.
+ *
+ * @return  events not processed
+ */
 uint16 HidKbdMouse_ProcessEvent( uint8 task_id, uint16 events )
 {
 
@@ -512,14 +512,14 @@ uint16 HidKbdMouse_ProcessEvent( uint8 task_id, uint16 events )
 }
 
 /*********************************************************************
-* @fn      hidKbdMouse_ProcessOSALMsg
-*
-* @brief   Process an incoming task message.
-*
-* @param   pMsg - message to process
-*
-* @return  none
-*/
+ * @fn      hidKbdMouse_ProcessOSALMsg
+ *
+ * @brief   Process an incoming task message.
+ *
+ * @param   pMsg - message to process
+ *
+ * @return  none
+ */
 static void hidKbdMouse_ProcessOSALMsg( osal_event_hdr_t *pMsg )
 {
   switch ( pMsg->event )
@@ -528,20 +528,20 @@ static void hidKbdMouse_ProcessOSALMsg( osal_event_hdr_t *pMsg )
     //    hidKbdMouse_HandleKeys( ((keyChange_t *)pMsg)->state, ((keyChange_t *)pMsg)->keys );
     //    break;
 
-  default:
-    break;
+    default:
+      break;
   }
 }
 
 /*********************************************************************
-* @fn      hidKbdMouseSendReport
-*
-* @brief   Build and send a HID keyboard report.
-*
-* @param   keycode - HID keycode.
-*
-* @return  none
-*/
+ * @fn      hidKbdMouseSendReport
+ *
+ * @brief   Build and send a HID keyboard report.
+ *
+ * @param   keycode - HID keycode.
+ *
+ * @return  none
+ */
 static void hidKbdMouseSendReport( uint8 modifier, uint8 keycode )
 {
   uint8 buf[HID_KEYBOARD_IN_RPT_LEN];
@@ -556,18 +556,18 @@ static void hidKbdMouseSendReport( uint8 modifier, uint8 keycode )
   buf[7] = 0;         // Keycode 6
 
   HidDev_Report( HID_RPT_ID_KEY_IN, HID_REPORT_TYPE_INPUT,
-                HID_KEYBOARD_IN_RPT_LEN, buf );
+      HID_KEYBOARD_IN_RPT_LEN, buf );
 }
 
 /*********************************************************************
-* @fn      hidKbdMouseSendMouseReport
-*
-* @brief   Build and send a HID mouse report.
-*
-* @param   buttons - Mouse button code
-*
-* @return  none
-*/
+ * @fn      hidKbdMouseSendMouseReport
+ *
+ * @brief   Build and send a HID mouse report.
+ *
+ * @param   buttons - Mouse button code
+ *
+ * @return  none
+ */
 static void hidKbdMouseSendMouseReport(uint8 buttons, int8 dx, int8 dy, int8 dz)
 {
   uint8 buf[HID_MOUSE_IN_RPT_LEN];
@@ -579,19 +579,19 @@ static void hidKbdMouseSendMouseReport(uint8 buttons, int8 dx, int8 dy, int8 dz)
   buf[4] = 0;         // AC Pan
 
   HidDev_Report( HID_RPT_ID_MOUSE_IN, HID_REPORT_TYPE_INPUT,
-                HID_MOUSE_IN_RPT_LEN, buf );
+      HID_MOUSE_IN_RPT_LEN, buf );
 }
 
 /*********************************************************************
-* @fn      hidKbdMouseRcvReport
-*
-* @brief   Process an incoming HID keyboard report.
-*
-* @param   len - Length of report.
-* @param   pData - Report data.
-*
-* @return  status
-*/
+ * @fn      hidKbdMouseRcvReport
+ *
+ * @brief   Process an incoming HID keyboard report.
+ *
+ * @param   len - Length of report.
+ * @param   pData - Report data.
+ *
+ * @return  status
+ */
 static uint8 hidKbdMouseRcvReport( uint8 len, uint8 *pData )
 {
   //attempt to extract report bits from host output
@@ -612,21 +612,21 @@ static uint8 hidKbdMouseRcvReport( uint8 len, uint8 *pData )
 }
 
 /*********************************************************************
-* @fn      hidKbdMouseRptCB
-*
-* @brief   HID Dev report callback.
-*
-* @param   id - HID report ID.
-* @param   type - HID report type.
-* @param   uuid - attribute uuid.
-* @param   oper - operation:  read, write, etc.
-* @param   len - Length of report.
-* @param   pData - Report data.
-*
-* @return  GATT status code.
-*/
+ * @fn      hidKbdMouseRptCB
+ *
+ * @brief   HID Dev report callback.
+ *
+ * @param   id - HID report ID.
+ * @param   type - HID report type.
+ * @param   uuid - attribute uuid.
+ * @param   oper - operation:  read, write, etc.
+ * @param   len - Length of report.
+ * @param   pData - Report data.
+ *
+ * @return  GATT status code.
+ */
 static uint8 hidKbdMouseRptCB( uint8 id, uint8 type, uint16 uuid,
-                              uint8 oper, uint8 *pLen, uint8 *pData )
+    uint8 oper, uint8 *pLen, uint8 *pData )
 {
   uint8 status = SUCCESS;
 
@@ -673,14 +673,14 @@ static uint8 hidKbdMouseRptCB( uint8 id, uint8 type, uint16 uuid,
 }
 
 /*********************************************************************
-* @fn      hidKbdMouseEvtCB
-*
-* @brief   HID Dev event callback.
-*
-* @param   evt - event ID.
-*
-* @return  HID response code.
-*/
+ * @fn      hidKbdMouseEvtCB
+ *
+ * @brief   HID Dev event callback.
+ *
+ * @param   evt - event ID.
+ *
+ * @return  HID response code.
+ */
 static void hidKbdMouseEvtCB( uint8 evt )
 {
   // process enter/exit suspend or enter/exit boot mode
@@ -689,23 +689,23 @@ static void hidKbdMouseEvtCB( uint8 evt )
 }
 
 /*
-Setting up UART
-- To use UART, HAL_UART=TRUE, preferrably POWER_SAVING is not enabled
-- To use interrupts, HAL_UART_ISR = (1 or 2), HAL_UART_DMA=FALSE
-- To use DMA, HAL_UART_ISR = 0, HAL_UART_DMA = (1 or 2)
+   Setting up UART
+   - To use UART, HAL_UART=TRUE, preferrably POWER_SAVING is not enabled
+   - To use interrupts, HAL_UART_ISR = (1 or 2), HAL_UART_DMA=FALSE
+   - To use DMA, HAL_UART_ISR = 0, HAL_UART_DMA = (1 or 2)
 
-+ HAL_UART_ISR = 1: Use USART 0
-+ HAL_UART_ISR = 2: Use USART 1
+   + HAL_UART_ISR = 1: Use USART 0
+   + HAL_UART_ISR = 2: Use USART 1
 
-Set PERCFG.UxCFG to choose alternative 1 or 2
+   Set PERCFG.UxCFG to choose alternative 1 or 2
 
-For keyfob, USART 0 alt. 1 is being used:
-- HAL_UART_ISR = 1
-For HM-10, USART 1 alt. 2 is being used:
-- HAL_UART_ISR = 2
-For HM-11, RX on P0.2, TX on P0.3 => USART 0 alt. 1 is being used:
-- HAL_UART_ISR = 1
-*/
+   For keyfob, USART 0 alt. 1 is being used:
+   - HAL_UART_ISR = 1
+   For HM-10, USART 1 alt. 2 is being used:
+   - HAL_UART_ISR = 2
+   For HM-11, RX on P0.2, TX on P0.3 => USART 0 alt. 1 is being used:
+   - HAL_UART_ISR = 1
+   */
 
 //UART test variable
 uint8 *rxBuffer;
@@ -738,7 +738,7 @@ static void setupUART(void) {
 #else
   (void)HalUARTOpen(HAL_UART_PORT_1, &uartConfig);
 #endif
-  
+
   printf("Started UART\r\n");
 
   //assumes there is no problem with getting these blocks of bytes
@@ -752,83 +752,83 @@ static void uartCallback(uint8 port, uint8 event) {
   uint8 i;
 
   switch(event) {
-  case HAL_UART_RX_FULL:
-  case HAL_UART_RX_ABOUT_FULL:
-  case HAL_UART_RX_TIMEOUT:
+    case HAL_UART_RX_FULL:
+    case HAL_UART_RX_ABOUT_FULL:
+    case HAL_UART_RX_TIMEOUT:
 #if (HAL_UART_ISR == 1)
-    len = Hal_UART_RxBufLen(HAL_UART_PORT_0);
-    HalUARTRead(HAL_UART_PORT_0, buf, len);
+      len = Hal_UART_RxBufLen(HAL_UART_PORT_0);
+      HalUARTRead(HAL_UART_PORT_0, buf, len);
 #else
-    len = Hal_UART_RxBufLen(HAL_UART_PORT_1);
-    HalUARTRead(HAL_UART_PORT_1, buf, len);
+      len = Hal_UART_RxBufLen(HAL_UART_PORT_1);
+      HalUARTRead(HAL_UART_PORT_1, buf, len);
 #endif
 
-    /*
-    Proposing states:
-    - If 3 consequence @'s, ie. @@@ is sent, put device into command mode (0)
-    - If 3 consequent $'s, ie. $$$ is sent, put device into translation mode (1)
+      /*
+         Proposing states:
+         - If 3 consequence @'s, ie. @@@ is sent, put device into command mode (0)
+         - If 3 consequent $'s, ie. $$$ is sent, put device into translation mode (1)
 
-    - In command mode, use U<value>, D<value>, M<value><value><value><value>, S<value>,<value>
-    all followed by a line return
-    - In translation mode, if the buffer is within ASCII printable, create
-    reports with corresponding USB HID keycode and send to host (translate). Mouse data is sent with
-    0x03 <state> <x> <y> <z>
-    */
+         - In command mode, use U<value>, D<value>, M<value><value><value><value>, S<value>,<value>
+         all followed by a line return
+         - In translation mode, if the buffer is within ASCII printable, create
+         reports with corresponding USB HID keycode and send to host (translate). Mouse data is sent with
+         0x03 <state> <x> <y> <z>
+         */
 
-    for(i = 0; i < len; i++) {
+      for(i = 0; i < len; i++) {
 
-      //Detects if a mode is being selected
-      if((buf[i] == '@') || (buf[i] == '$')) { //not to waste time
-        //printf("strIndex: %i\r\n",strIndex);
-        modeSelStr[strIndex++] = buf[i];
-        if(strIndex == 3) {
-          //printf("Testing for selection\r\n");
-          if((modeSelStr[0] == '@') && (modeSelStr[1] == '@') && (modeSelStr[2] == '@')) {
-            printf("enter command mode\r\n");
-            mode = command;
-          } else if((modeSelStr[0] == '$') && (modeSelStr[1] == '$') && (modeSelStr[2] == '$')) {
-            printf("enter translate mode\r\n");
-            mode = translate;
-          } else {
-            printf("unknown command\r\n");
-            printf("enter command mode\r\n");
-            mode = command;
+        //Detects if a mode is being selected
+        if((buf[i] == '@') || (buf[i] == '$')) { //not to waste time
+          //printf("strIndex: %i\r\n",strIndex);
+          modeSelStr[strIndex++] = buf[i];
+          if(strIndex == 3) {
+            //printf("Testing for selection\r\n");
+            if((modeSelStr[0] == '@') && (modeSelStr[1] == '@') && (modeSelStr[2] == '@')) {
+              printf("enter command mode\r\n");
+              mode = command;
+            } else if((modeSelStr[0] == '$') && (modeSelStr[1] == '$') && (modeSelStr[2] == '$')) {
+              printf("enter translate mode\r\n");
+              mode = translate;
+            } else {
+              printf("unknown command\r\n");
+              printf("enter command mode\r\n");
+              mode = command;
+            }
+            strIndex = 0;
+            memset(modeSelStr, 0, 3);
+            break; //stops filling buffer if a new mode is selected
           }
-          strIndex = 0;
-          memset(modeSelStr, 0, 3);
-          break; //stops filling buffer if a new mode is selected
-        }
-      } else {
-        memset(modeSelStr, 0, 3);
-        strIndex = 0;
-      }
-
-      if(mode == command) {
-        //command mode is selected
-        if((buf[i] != 0x0D) && (buf[i] != 0x0A)) {
-          rxBuffer[rxBufferIndex++] = buf[i];
         } else {
-          processCommands();
-          if(sleepModeEnabled) {
-             printf("Enter SLEEP\r\n");
-            sleepMode();
-          }
-          break;
+          memset(modeSelStr, 0, 3);
+          strIndex = 0;
         }
-      } else if (mode == translate) {
-        sendKbdReportsWith(buf[i]);
-      } else if (mode == debug) {
-        
-      }
-    }
 
-    break; //break for case(HAL_UART_RX_TIMEOUT)
+        if(mode == command) {
+          //command mode is selected
+          if((buf[i] != 0x0D) && (buf[i] != 0x0A)) {
+            rxBuffer[rxBufferIndex++] = buf[i];
+          } else {
+            processCommands();
+            if(sleepModeEnabled) {
+              printf("Enter SLEEP\r\n");
+              sleepMode();
+            }
+            break;
+          }
+        } else if (mode == translate) {
+          sendKbdReportsWith(buf[i]);
+        } else if (mode == debug) {
+
+        }
+      }
+
+      break; //break for case(HAL_UART_RX_TIMEOUT)
   }
 }
 
 /*
-Translate c to keyboard reports
-*/
+   Translate c to keyboard reports
+   */
 static void sendKbdReportsWith(uint8 c) {
   uint8 modifier = 0;
   uint8 keycode = asciiToKeycodes[c];
@@ -845,18 +845,18 @@ static void sendKbdReportsWith(uint8 c) {
 
 //Buffer being processed stored in rxBuffer, does not include CRLF
 /*
-Command sets, chosen options need to be stored in non-volatile memory
-- SC,<value>  + set connection mode of device
-+ <value> is a single digit number
-+ 1 Do not auto-connect to last paired, 2 auto-connect to last paired
-- SN,<value>  + set device name
-+ <value> device's new name
-- S,R Reset the device
-- S,ID print ID of module
-- S,N print the current Bluetooth name
-- S,D Set device to be discoverable
-- S,DC  Disconnect device from host
-*/
+   Command sets, chosen options need to be stored in non-volatile memory
+   - SC,<value>  + set connection mode of device
+   + <value> is a single digit number
+   + 1 Do not auto-connect to last paired, 2 auto-connect to last paired
+   - SN,<value>  + set device name
+   + <value> device's new name
+   - S,R Reset the device
+   - S,ID print ID of module
+   - S,N print the current Bluetooth name
+   - S,D Set device to be discoverable
+   - S,DC  Disconnect device from host
+   */
 static void processCommands(void) {
   //buf: Testing variables
   uint8 *buf = rxBuffer;
@@ -866,12 +866,12 @@ static void processCommands(void) {
     if(rxBufferIndex == 3) {
       if (rxBuffer[1] == 'M') {
         // Modifier
-        
+
       } else if (rxBuffer[1] == 'S') {
-         KBD_Report_AddKey(rxBuffer[2]);
-         KBD_Report_Update();
-         KBD_Report_RemoveKey(rxBuffer[2]);
-         KBD_Report_Update();
+        KBD_Report_AddKey(rxBuffer[2]);
+        KBD_Report_Update();
+        KBD_Report_RemoveKey(rxBuffer[2]);
+        KBD_Report_Update();
       } else if(rxBuffer[1] == 'U') {
         //Key released
         printf("key released\r\n");
@@ -1004,8 +1004,8 @@ static void activeMode(void) {
   osal_pwrmgr_device( PWRMGR_ALWAYS_ON );
 }
 /*********************************************************************
-ISR
-*********************************************************************/
+  ISR
+ *********************************************************************/
 #pragma vector=P0INT_VECTOR
 __interrupt void P0_ISR(void) {
   //Disable pin interrupts and re-enable UART
