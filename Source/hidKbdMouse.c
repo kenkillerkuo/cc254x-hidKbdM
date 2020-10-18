@@ -381,11 +381,10 @@ void HidKbdMouse_Init( uint8 task_id )
 
   // Set the GAP Characteristics
   if(*device_name_crc != getCRC(device_name, *device_name_length)) {
-    //    printf("Using default device name");
+    printf("Using default device name\r\n");
     GGS_SetParameter( GGS_DEVICE_NAME_ATT, GAP_DEVICE_NAME_LEN, (void *) attDeviceName );
   } else {
-    //    printf("Using stored device name");
-    //    printf("%s\r\n", device_name);
+        printf("Using stored device name: %s\r\n", device_name);
     GGS_SetParameter( GGS_DEVICE_NAME_ATT, *device_name_length + 1, (void *) device_name );
   }
   //Allow device to change name
@@ -715,7 +714,7 @@ uint8 rxBufferIndex = 0;
 uint8 *modeSelStr;
 uint8 strIndex = 0;
 
-uint8 mode = translate;
+uint8 mode = command;
 
 static void setupUART(void) {
   HalUARTInit();
@@ -740,7 +739,7 @@ static void setupUART(void) {
   (void)HalUARTOpen(HAL_UART_PORT_1, &uartConfig);
 #endif
   
-  //printf("Started UART\r\n");
+  printf("Started UART\r\n");
 
   //assumes there is no problem with getting these blocks of bytes
   rxBuffer = osal_mem_alloc(20); //expanded to handle name changes
@@ -785,11 +784,15 @@ static void uartCallback(uint8 port, uint8 event) {
         if(strIndex == 3) {
           //printf("Testing for selection\r\n");
           if((modeSelStr[0] == '@') && (modeSelStr[1] == '@') && (modeSelStr[2] == '@')) {
-            printf("command mode\r\n");
+            printf("enter command mode\r\n");
             mode = command;
           } else if((modeSelStr[0] == '$') && (modeSelStr[1] == '$') && (modeSelStr[2] == '$')) {
-            printf("translate mode\r\n");
+            printf("enter translate mode\r\n");
             mode = translate;
+          } else {
+            printf("unknown command\r\n");
+            printf("enter command mode\r\n");
+            mode = command;
           }
           strIndex = 0;
           memset(modeSelStr, 0, 3);
@@ -807,6 +810,7 @@ static void uartCallback(uint8 port, uint8 event) {
         } else {
           processCommands();
           if(sleepModeEnabled) {
+             printf("Enter SLEEP\r\n");
             sleepMode();
           }
           break;
@@ -946,6 +950,8 @@ static void processCommands(void) {
       sleepModeEnabled = 0;
       activeMode();
     }
+  } else {
+    printf("unknown command\r\n");
   }
 
   //after processing, reset rxBuffer and its index
