@@ -807,8 +807,7 @@ static void uartCallback(uint8 port, uint8 event) {
             } else if (startChar == '#') {
               printf("Test OK\r\n");
             } else if (startChar == '%') {
-              printf("reset\r\n");
-              HAL_SYSTEM_RESET();
+              resetDevice();
             } else {
               printf("unknown command, mode not change\r\n");
               strIndex = 0;
@@ -973,9 +972,7 @@ static void processCommands(void) {
         printf("Name is being set, reset to set new name\r\n");
       }
     } else if((rxBuffer[1] == ',') && (rxBuffer[2] == 'R')) {
-      //reset the device
-      printf("reset\r\n");
-      HAL_SYSTEM_RESET();
+      resetDevice();
     } else if((rxBuffer[1] == ',') && (rxBuffer[2] == 'I') && (rxBuffer[3] == 'D')) {
       //print ID
       printf(VERSION_STRING);
@@ -1010,6 +1007,17 @@ static void processCommands(void) {
   //after processing, reset rxBuffer and its index
   memset(rxBuffer, 0, rxBufferIndex);
   rxBufferIndex = 0;
+}
+
+static void resetDevice(void) {
+  uint8 gapRole_INIT[KEYLEN] = {0};
+  uint32 gapRole_signCounter = 0;
+  printf("reset\r\n");
+
+  osal_snv_write( BLE_NVID_IRK, KEYLEN, gapRole_INIT );
+  osal_snv_write( BLE_NVID_CSRK, KEYLEN, gapRole_INIT );
+  osal_snv_write( BLE_NVID_SIGNCOUNTER, sizeof( uint32 ), &gapRole_signCounter );
+  HAL_SYSTEM_RESET();
 }
 
 static void performPeriodicTask(void) {
