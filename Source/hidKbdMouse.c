@@ -44,8 +44,10 @@ Last modified:  8/10/2014
  * MACROS
  */
 
+#define DISABLE_TRANSLATION_MODE
+
 //version string to identify module/capabilities
-#define VERSION_STRING "hidkbdmousev1\r\n"
+#define VERSION_STRING "hidkbdmousev2\r\n"
 
 //UART testing
 #define SBP_PERIODIC_EVT_PERIOD         50
@@ -122,7 +124,8 @@ enum Modes {
 #define SNV_ID_DEVICE_NAME_LENGTH       0x81
 #define SNV_ID_DEVICE_NAME_CRC          0x82
 
-#define RX_BUFFER_LEN 128
+#define RX_BUFFER_LEN 64
+#define NAME_MAX_LEN 20
 
 /*********************************************************************
  * TYPEDEFS
@@ -324,7 +327,7 @@ void HidKbdMouse_Init( uint8 task_id )
   setupUART();
   GenerateCRCTable();
   //printf("%x\n",default_name_crc);
-  device_name = osal_mem_alloc(RX_BUFFER_LEN);
+  device_name = osal_mem_alloc(NAME_MAX_LEN);
   device_name_length = osal_mem_alloc(1);
   device_name_crc = osal_mem_alloc(1);
 
@@ -359,7 +362,7 @@ void HidKbdMouse_Init( uint8 task_id )
     osal_snv_read(SNV_ID_DEVICE_NAME_LENGTH, 1, device_name_length);
     osal_snv_read(SNV_ID_DEVICE_NAME, RX_BUFFER_LEN, device_name);
 
-    if(*device_name_crc != getCRC(device_name, *device_name_length)) {
+    if(*device_name_crc != getCRC(device_name, *device_name_length) || device_name[0] == '\0') {
       printf("Using default scan response name\r\n");
       GAPRole_SetParameter( GAPROLE_SCAN_RSP_DATA, sizeof ( default_scanData ), default_scanData );
     } else {
@@ -382,7 +385,7 @@ void HidKbdMouse_Init( uint8 task_id )
   }
 
   // Set the GAP Characteristics
-  if(*device_name_crc != getCRC(device_name, *device_name_length)) {
+  if(*device_name_crc != getCRC(device_name, *device_name_length) || device_name[0] == '\0') {
     printf("Using default device name\r\n");
     GGS_SetParameter( GGS_DEVICE_NAME_ATT, GAP_DEVICE_NAME_LEN, (void *) attDeviceName );
   } else {
@@ -713,8 +716,8 @@ static void hidKbdMouseEvtCB( uint8 evt )
 uint8 *rxBuffer;
 uint8 rxBufferIndex = 0;
 
-uint8 *modeSelStr;
 uint8 strIndex = 0;
+uint8 startChar = 0;
 
 uint8 mode = command;
 
@@ -745,7 +748,6 @@ static void setupUART(void) {
 
   //assumes there is no problem with getting these blocks of bytes
   rxBuffer = osal_mem_alloc(RX_BUFFER_LEN); //expanded to handle name changes
-  modeSelStr = osal_mem_alloc(3);
 }
 
 static void uartCallback(uint8 port, uint8 event) {
@@ -778,36 +780,55 @@ static void uartCallback(uint8 port, uint8 event) {
          */
 
       for(i = 0; i < len; i++) {
+        uint8 val = buf[i];
 
-        //Detects if a mode is being selected
-        if((buf[i] == '@') || (buf[i] == '$')
-            || (buf[i] == '#') || (buf[i] == '%')) { //not to waste time
-          //printf("strIndex: %i\r\n",strIndex);
-          modeSelStr[strIndex++] = buf[i];
-          if(strIndex == 3) {
-            //printf("Testing for selection\r\n");
-            if((modeSelStr[0] == '@') && (modeSelStr[1] == '@') && (modeSelStr[2] == '@')) {
+        if (startChar == 0 && 
+            (val == '@' ||
+#ifndef DISABLE_TRANSLATION_MODE
+             val == '$' ||
+#endif // DISABLE_TRANSLATION_MODE
+             val == '#' ||
+             val == '%' )) {
+          //init character
+          startChar = val;
+          strIndex++;
+        } else if (startChar != 0 && startChar == val) {
+          strIndex++;
+
+          if (strIndex == 3) {
+            if (startChar == '@') {
               printf("enter command mode\r\n");
               mode = command;
-            } else if((modeSelStr[0] == '$') && (modeSelStr[1] == '$') && (modeSelStr[2] == '$')) {
+#ifndef DISABLE_TRANSLATION_MODE
+            } else if (startChar == '$') {
               printf("enter translate mode\r\n");
               mode = translate;
-            } else if((modeSelStr[0] == '#') && (modeSelStr[1] == '#') && (modeSelStr[2] == '#')) {
+#endif // DISABLE_TRANSLATION_MODE
+            } else if (startChar == '#') {
               printf("Test OK\r\n");
-            } else if((modeSelStr[0] == '%') && (modeSelStr[1] == '%') && (modeSelStr[2] == '%')) {
+            } else if (startChar == '%') {
               printf("reset\r\n");
               HAL_SYSTEM_RESET();
             } else {
               printf("unknown command, mode not change\r\n");
+              strIndex = 0;
+              startChar = 0;
+              goto skip_mode_change;
             }
             strIndex = 0;
-            memset(modeSelStr, 0, 3);
-            break; //stops filling buffer if a new mode is selected
+            startChar = 0;
+            memset(rxBuffer, 0, rxBufferIndex);
+            rxBufferIndex = 0;
+            continue;
+skip_mode_change:
+
           }
-        } else {
-          memset(modeSelStr, 0, 3);
+        } else if (startChar != 0 && startChar != val) {
+          printf("unknown command, mode not change\r\n");
           strIndex = 0;
+          startChar = 0;
         }
+
 
         if(mode == command) {
           //command mode is selected
@@ -815,10 +836,10 @@ static void uartCallback(uint8 port, uint8 event) {
             memset(rxBuffer, 0, RX_BUFFER_LEN);
             rxBufferIndex = 0;
             break;
-          } else if(buf[i] != 0x0A) {
+          } else if(buf[i] != 0x0A) { // \n
             rxBuffer[rxBufferIndex++] = buf[i];
           } else { // if buf[i] == 0x0A
-            if (rxBufferIndex > 0 && rxBuffer[rxBufferIndex - 1] == 0x0D) {
+            if (rxBufferIndex > 0 && rxBuffer[rxBufferIndex - 1] == 0x0D) { // \r
               rxBuffer[rxBufferIndex++] = buf[i];
               if (rxBufferIndex == 2) {
                 // just empty, eat it
@@ -840,8 +861,10 @@ static void uartCallback(uint8 port, uint8 event) {
             }
             break;
           }
+#ifndef DISABLE_TRANSLATION_MODE
         } else if (mode == translate) {
           sendKbdReportsWith(buf[i]);
+#endif
         } else if (mode == debug) {
 
         }
@@ -926,12 +949,12 @@ static void processCommands(void) {
       printf("Connection modes\r\n");
     } else if((rxBuffer[1] == 'N') && (rxBuffer[2] == ',')) {
       uint8 i;
-      uint8 deviceNewName[RX_BUFFER_LEN];
+      uint8 deviceNewName[NAME_MAX_LEN];
       uint8 deviceNewNameLength;
       uint8 deviceNewNameCRC;
 
       deviceNewNameLength = rxBufferIndex-5;
-      if(deviceNewNameLength > RX_BUFFER_LEN) {
+      if(deviceNewNameLength >= NAME_MAX_LEN) {
         printf("Name exceeds permitted length\r\n");
       } else {
         for(i = 3; i < rxBufferIndex; i++) {
@@ -940,9 +963,13 @@ static void processCommands(void) {
         deviceNewName[deviceNewNameLength] = '\0';
         deviceNewNameCRC = getCRC(deviceNewName, deviceNewNameLength);
 
-        osal_snv_write(SNV_ID_DEVICE_NAME, RX_BUFFER_LEN, deviceNewName);
+        osal_snv_write(SNV_ID_DEVICE_NAME, NAME_MAX_LEN, deviceNewName);
         osal_snv_write(SNV_ID_DEVICE_NAME_LENGTH, 1, &deviceNewNameLength);
         osal_snv_write(SNV_ID_DEVICE_NAME_CRC, 1, &deviceNewNameCRC);
+
+        memcpy(device_name, deviceNewName, NAME_MAX_LEN);
+        GGS_SetParameter( GGS_DEVICE_NAME_ATT, deviceNewNameLength, (void *) deviceNewName );
+
         printf("Name is being set, reset to set new name\r\n");
       }
     } else if((rxBuffer[1] == ',') && (rxBuffer[2] == 'R')) {
@@ -976,7 +1003,8 @@ static void processCommands(void) {
       activeMode();
     }
   } else {
-    printf("unknown command\r\n");
+    rxBuffer[rxBufferIndex - 1] = '\0';
+    printf("unknown command %s\r\n", rxBuffer);
   }
 
   //after processing, reset rxBuffer and its index
