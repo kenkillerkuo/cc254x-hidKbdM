@@ -44,8 +44,6 @@ Last modified:  8/10/2014
  * MACROS
  */
 
-#define DISABLE_TRANSLATION_MODE
-
 //version string to identify module/capabilities
 #define VERSION_STRING "hidkbdmousev2\r\n"
 
@@ -124,8 +122,10 @@ enum Modes {
 #define SNV_ID_DEVICE_NAME_LENGTH       0x81
 #define SNV_ID_DEVICE_NAME_CRC          0x82
 
-#define RX_BUFFER_LEN 64
+#define RX_BUFFER_LEN 32
 #define NAME_MAX_LEN 20
+
+#define RAW_HID_PREFIX 0xfd
 
 /*********************************************************************
  * TYPEDEFS
@@ -246,6 +246,10 @@ static void performPeriodicTask(void);
 //Keyboard and mouse functions
 static void processCommands(void);
 static void sendKbdReportsWith(uint8 c);
+
+
+static void resetDevice(void);
+static void processTranslate(uint8 ch);
 
 //uart-to-hid scan code
 static const uint8 asciiToKeycodes[128] = {
@@ -715,6 +719,7 @@ static void hidKbdMouseEvtCB( uint8 evt )
 //UART test variable
 uint8 *rxBuffer;
 uint8 rxBufferIndex = 0;
+uint8 raw_len = 0;
 
 uint8 strIndex = 0;
 uint8 startChar = 0;
@@ -782,52 +787,46 @@ static void uartCallback(uint8 port, uint8 event) {
       for(i = 0; i < len; i++) {
         uint8 val = buf[i];
 
-        if (startChar == 0 && 
+        if (startChar == 0 &&
             (val == '@' ||
-#ifndef DISABLE_TRANSLATION_MODE
              val == '$' ||
-#endif // DISABLE_TRANSLATION_MODE
              val == '#' ||
-             val == '%' )) {
+             val == '%')) {
           //init character
           startChar = val;
           strIndex++;
-        } else if (startChar != 0 && startChar == val) {
-          strIndex++;
-
-          if (strIndex == 3) {
+        } else if (startChar == 0 &&
+            (val == '\r' ||
+             val == '\n')) {
+          // do nothing
+        } else if (startChar != 0) {
+          if (strIndex < 3 && startChar == val) {
+            strIndex++;
+          } else if (strIndex == 3 && val == '\r') {
+            strIndex++;
+          } else if (strIndex == 4 && val == '\n') {
             if (startChar == '@') {
               printf("enter command mode\r\n");
               mode = command;
-#ifndef DISABLE_TRANSLATION_MODE
             } else if (startChar == '$') {
               printf("enter translate mode\r\n");
               mode = translate;
-#endif // DISABLE_TRANSLATION_MODE
             } else if (startChar == '#') {
               printf("Test OK\r\n");
             } else if (startChar == '%') {
               resetDevice();
-            } else {
-              printf("unknown command, mode not change\r\n");
-              strIndex = 0;
-              startChar = 0;
-              goto skip_mode_change;
             }
             strIndex = 0;
             startChar = 0;
             memset(rxBuffer, 0, rxBufferIndex);
             rxBufferIndex = 0;
             continue;
-skip_mode_change:
-
+          } else {
+            printf("unknown command, mode not change\r\n");
+            strIndex = 0;
+            startChar = 0;
           }
-        } else if (startChar != 0 && startChar != val) {
-          printf("unknown command, mode not change\r\n");
-          strIndex = 0;
-          startChar = 0;
-        }
-
+        } // finish mode change
 
         if(mode == command) {
           //command mode is selected
@@ -860,17 +859,81 @@ skip_mode_change:
             }
             break;
           }
-#ifndef DISABLE_TRANSLATION_MODE
         } else if (mode == translate) {
-          sendKbdReportsWith(buf[i]);
-#endif
+          processTranslate(buf[i]);
         } else if (mode == debug) {
 
         }
-      }
+      } // End for
 
       break; //break for case(HAL_UART_RX_TIMEOUT)
   }
+}
+
+static uint8 rawBuffer[REPORT_BUFFER_SIZE] = {0};
+static uint8 rawIndex = 0;
+static uint8 rawLen = 0;
+static uint8 descType = 0;
+
+/**
+
+  reference to: https://dlnmh9ip6v2uc.cloudfront.net/datasheets/Wireless/Bluetooth/RN-HID-User%20Guide-1.1r.pdf
+  Start | Length | Descriptor | Data[2-8]
+
+
+ */
+static void processTranslate(uint8 ch) {
+  //printf("rxBufferIndex: %x\r\n", rxBufferIndex);
+
+  if (rxBufferIndex == 0) {
+    if (ch == RAW_HID_PREFIX) {
+      rxBufferIndex++;
+      printf("start\r\n");
+    }
+    return;
+  } else if (rxBufferIndex == 1) {
+    if (ch > 0x09) {
+      printf("rawLen too long\r\n");
+      goto reset;
+    }
+    rxBufferIndex++;
+    rawLen = ch;
+    //printf("rawLen: %x\r\n", rawLen);
+    return;
+  } else if (rxBufferIndex == 2) {
+    // rxid 0   1   2  3  4  5 6 7 8 9 10
+    //      11  0   9  8  7  6 5 4 3 2 1
+    if (ch < 0x00 || ch > 0x03) {
+      printf("Descriptor is incorrect\r\n");
+      goto reset;
+    }
+    descType = ch;
+    rxBufferIndex++;
+    //printf("descType: %x\r\n", descType);
+    return;
+  } else if (rxBufferIndex > rawLen + 2) {
+    printf("Length is incorrect\r\n");
+    goto reset;
+  }
+
+  rawBuffer[rawIndex++] = ch;
+  rxBufferIndex++;
+
+  if (rawIndex == rawLen - 1) {
+    HidDev_Report(descType,
+        HID_REPORT_TYPE_INPUT,
+        rawLen - 1,
+        rawBuffer);
+    printf("Send \r\n");
+  } else {
+    return;
+  }
+
+reset:
+  printf("reset\r\n");
+  rawIndex = 0;
+  rawLen = 0;
+  rxBufferIndex = 0;
 }
 
 /*
